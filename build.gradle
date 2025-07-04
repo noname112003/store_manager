@@ -38,7 +38,7 @@ dependencies {
     implementation 'jakarta.xml.bind:jakarta.xml.bind-api:4.0.0'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'com.google.firebase:firebase-admin:9.2.0'
-
+    implementation group: 'vn.payos', name: 'payos-java', version: '1.0.3'
     compileOnly 'org.projectlombok:lombok:1.18.34'
     annotationProcessor 'org.projectlombok:lombok:1.18.34'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'

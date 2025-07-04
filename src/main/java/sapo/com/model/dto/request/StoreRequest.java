@@ -13,8 +13,9 @@ public class StoreRequest {
     private String name;
     private String address;
     private String phone;
-    private String status;
+    private boolean status;
     private String city;
     private String district;
     private String ward;
+    private Long userId;
 }

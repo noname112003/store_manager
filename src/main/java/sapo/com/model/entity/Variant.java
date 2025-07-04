@@ -1,21 +1,22 @@
 package sapo.com.model.entity;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.*;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.DynamicInsert;
 import sapo.com.model.dto.request.VariantRequest;
 import sapo.com.model.dto.request.VariantStoreRequest;
 import sapo.com.model.dto.response.ProductResponse;
+import sapo.com.model.dto.response.StoreQuantityDto;
 import sapo.com.model.dto.response.VariantResponse;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 
 @Entity
@@ -31,7 +32,7 @@ public class Variant {
     private Long id;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id")
-    @JsonBackReference
+    @JsonBackReference(value = "product-variant")
     private Product product;
     //    @ManyToOne
 //    @JoinColumn(name = "creator_id")
@@ -44,6 +45,7 @@ public class Variant {
     private String color;
     private String material;
     private Long quantity;
+    private Long stock; // tồn kho tổng
     @Column(name = "initial_price")
     private BigDecimal initialPrice;
     @Column(name = "price_for_sale")
@@ -58,6 +60,11 @@ public class Variant {
     @Column(name = "updated_on")
     private LocalDateTime updatedOn;
 
+    @OneToMany(mappedBy = "variant", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @JsonManagedReference(value = "variant-variantStore")
+    @BatchSize(size = 10) // Hibernate sẽ join theo batch thay vì từng dòng
+    private Set<VariantStore> variantStores;
+
     public VariantResponse transferToResponse() {
         VariantResponse variantResponse = new VariantResponse();
         variantResponse.setName(this.name);
@@ -69,12 +76,19 @@ public class Variant {
         variantResponse.setColor(this.color);
         variantResponse.setMaterial(this.material);
         variantResponse.setQuantity(this.quantity);
+        variantResponse.setStock(this.stock);
         variantResponse.setInitialPrice(this.initialPrice);
         variantResponse.setPriceForSale(this.priceForSale);
         variantResponse.setStatus(this.status);
         variantResponse.setImagePath(this.imagePath);
         variantResponse.setCreatedOn(this.createdOn);
         variantResponse.setUpdateOn(this.updatedOn);
+        if (this.variantStores != null && !this.variantStores.isEmpty()) {
+            List<StoreQuantityDto> storeDtos = this.variantStores.stream()
+                    .map(vs -> new StoreQuantityDto(vs.getStoreId(), vs.getQuantity()))
+                    .collect(Collectors.toList());
+            variantResponse.setVariantStores(storeDtos);
+        }
         return variantResponse;
     }
 
@@ -91,6 +105,7 @@ public class Variant {
         this.initialPrice = variantRequest.getInitialPrice();
         this.priceForSale = variantRequest.getPriceForSale();
         this.quantity = variantRequest.getQuantity();
+        this.stock = variantRequest.getStock();
         this.imagePath = variantRequest.getImagePath();
     }
 

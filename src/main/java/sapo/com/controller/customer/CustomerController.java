@@ -13,7 +13,11 @@ import sapo.com.exception.CustomerNotFoundException;
 import sapo.com.model.dto.response.ResponseObject;
 import sapo.com.model.dto.response.customer.CustomerDetailResponse;
 import sapo.com.model.dto.response.customer.CustomerResponse;
+import sapo.com.model.dto.response.order.AllOrderResponse;
 import sapo.com.model.entity.Customer;
+import sapo.com.model.entity.Order;
+import sapo.com.repository.CustomerRepository;
+import sapo.com.repository.OrderRepository;
 import sapo.com.service.CustomerService;
 
 @RestController
@@ -22,6 +26,8 @@ import sapo.com.service.CustomerService;
 public class CustomerController {
 
     @Autowired private CustomerService customerService;
+    @Autowired private CustomerRepository customerRepository;
+    @Autowired private OrderRepository orderRepository;
 
     @GetMapping("")
     public ResponseEntity<Page<CustomerResponse>> findByKeyword(
@@ -36,13 +42,27 @@ public class CustomerController {
 
     @GetMapping("/{customerId}")
     public ResponseEntity<?> findById(@PathVariable Long customerId) throws CustomerNotFoundException {
-        Customer existingCustomer = customerService.findById(customerId);
+//        Customer existingCustomer = customerRepository.findById(customerId);
+//        Customer existingCustomer = customerRepository.findById(customerId)
+//                .orElseThrow(() -> new CustomerNotFoundException("Không tìm thấy khách hàng"));
+
+        Customer existingCustomer = customerRepository.findWithOrders(customerId)
+                .orElseThrow(() -> new CustomerNotFoundException("Không tìm thấy khách hàng ứng với ID: " + customerId));
         if (existingCustomer == null) {
             return new ResponseEntity<>("Không tìm thấy khách hàng ứng với ID: " + customerId, HttpStatus.NOT_FOUND);
         }
         CustomerDetailResponse customerDetailResponse = new CustomerDetailResponse(existingCustomer);
         return new ResponseEntity<>(customerDetailResponse, HttpStatus.OK);
     }
+    @GetMapping("/{customerId}/orders")
+    public ResponseEntity<?> getCustomerOrders(@PathVariable Long customerId,
+                                               @RequestParam(defaultValue = "0") int page,
+                                               @RequestParam(defaultValue = "5") int size) {
+        Page<Order> ordersPage = orderRepository.findByCustomerId(customerId, PageRequest.of(page, size, Sort.by("createdOn").descending()));
+        Page<AllOrderResponse> dtoPage = ordersPage.map(AllOrderResponse::new);
+        return ResponseEntity.ok(dtoPage);
+    }
+
 
     @PostMapping("/create")
     public ResponseEntity<ResponseObject> createCustomer(@RequestBody Customer customer) {
@@ -60,12 +80,14 @@ public class CustomerController {
         }
 
         // Save the new customer
-        customerService.register(customer);
+        Customer savedCustomer = customerService.register(customer); // Trả về customer sau khi lưu và set mã code
+        CustomerResponse response = new CustomerResponse(savedCustomer);
+
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 ResponseObject.builder()
                         .message("Tạo khách hàng mới thành công.")
                         .status(HttpStatus.CREATED)
-                        .data(null)
+                        .data(response)
                         .build()
         );
 
@@ -74,9 +96,12 @@ public class CustomerController {
     @PutMapping("/update/{id}")
     public ResponseEntity<?> updateCustomer(@PathVariable("id") Long id,
                                             @RequestBody Customer customerInForm) throws CustomerNotFoundException {
-        Customer existingCustomer = customerService.findByPhoneNumber(customerInForm.getPhoneNumber());
-        if (existingCustomer != null) {
-            if(existingCustomer.getId() != id){
+        Customer customerInDb = customerService.findById(id);  // 1 lần query duy nhất
+
+        // Nếu số điện thoại thay đổi thì mới kiểm tra trùng
+        if (!customerInDb.getPhoneNumber().equals(customerInForm.getPhoneNumber())) {
+            Customer existingCustomer = customerService.findByPhoneNumber(customerInForm.getPhoneNumber());
+            if (existingCustomer != null && !existingCustomer.getId().equals(id)) {
                 return ResponseEntity.status(HttpStatus.CONFLICT).body(
                         ResponseObject.builder()
                                 .message("Số điện thoại đã tồn tại.")
@@ -86,19 +111,20 @@ public class CustomerController {
                 );
             }
         }
-        Customer customerInDb = customerService.findById(id);
+
         customerInForm.setId(id);
-        Customer updatedCustomer = customerService.update(customerInForm);
+        Customer updatedCustomer = customerService.update(customerInDb, customerInForm); // Cập nhật xong có thể trả luôn
         CustomerResponse customerResponse = new CustomerResponse(updatedCustomer);
 
-        return ResponseEntity.status(HttpStatus.OK).body(
+        return ResponseEntity.ok(
                 ResponseObject.builder()
-                        .message("Customer ID:"+id+" updated successfully")
+                        .message("Customer ID:" + id + " updated successfully")
                         .status(HttpStatus.OK)
                         .data(customerResponse)
                         .build()
         );
     }
+
 
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<?> deleteCustomer(@PathVariable("id") Long customerId) throws CustomerNotFoundException {

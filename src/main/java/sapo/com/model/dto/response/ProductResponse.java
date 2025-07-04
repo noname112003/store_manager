@@ -21,6 +21,7 @@ public class ProductResponse {
     private String brandName;
     private String description;
     private Long totalQuantity;
+    private Long stock;
     private Boolean status ;
     private Set<String> size;
     private Set<String> color;

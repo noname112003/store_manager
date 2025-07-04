@@ -36,7 +36,7 @@ public class Category {
     @Column(name = "updated_on")
     private LocalDateTime updatedOn ;
     @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference
+    @JsonManagedReference(value = "product-category")
     private Set<Product> products;
 
     public CategoryResponse transferToResponse(){

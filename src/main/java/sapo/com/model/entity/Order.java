@@ -56,8 +56,8 @@ public class Order {
     @Column(name = "payment_type")
     private String paymentType;
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-//    @JsonManagedReference(value = "order-orderDetails")
-    @JsonIgnore
+    @JsonManagedReference(value = "order-orderDetails")
+//    @JsonIgnore
     private Set<OrderDetail> orderDetails;
     private String status;
 }

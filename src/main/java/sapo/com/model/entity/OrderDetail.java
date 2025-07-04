@@ -1,5 +1,6 @@
 package sapo.com.model.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -19,6 +20,7 @@ public class OrderDetail {
     private Long id;
     @ManyToOne
     @JoinColumn(name = "order_id", nullable = false)
+    @JsonBackReference(value = "order-orderDetails")
     private Order order;
     @ManyToOne
     @JoinColumn(name = "variant_id", nullable = false)

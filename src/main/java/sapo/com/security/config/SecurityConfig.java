@@ -2,6 +2,10 @@ package sapo.com.security.config;
 
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.concurrent.ConcurrentMapCache;
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -11,6 +15,8 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.core.userdetails.UserCache;
+import org.springframework.security.core.userdetails.cache.SpringCacheBasedUserCache;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -23,12 +29,14 @@ import sapo.com.security.jwt.JwtEntryPoint;
 import sapo.com.security.jwt.JwtProvider;
 import sapo.com.security.jwt.JwtTokenFilter;
 import sapo.com.security.user_principal.UserDetailService;
+import vn.payos.PayOS;
 
 import java.util.List;
 
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@EnableCaching
 public class SecurityConfig {
     @Autowired
     private UserDetailService userDetailService ;
@@ -40,13 +48,22 @@ public class SecurityConfig {
     private JwtProvider jwtProvider;
     @Autowired
     private AccessDenied accessDenied ;
-
+//    @Autowired
+//    private PayOS payOS;
+@Bean
+public UserCache userCache() {
+    return new SpringCacheBasedUserCache(new ConcurrentMapCache("userCache"));
+}
+    @Bean
+    public CacheManager cacheManager() {
+        return new ConcurrentMapCacheManager("userCache");
+    }
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
         return httpSecurity
                 .cors(config -> config.configurationSource(request -> {
                     CorsConfiguration cf = new CorsConfiguration();
-                    cf.setAllowedOrigins(List.of("http://localhost:5173","https://project-iii-ae375.web.app/","https://project-iii-ae375.firebaseapp.com/"));
+                    cf.setAllowedOriginPatterns(List.of("*"));
                     cf.setAllowedMethods(List.of("*"));
                     cf.setAllowCredentials(true);
                     cf.setAllowedHeaders(List.of("*"));
@@ -144,6 +161,7 @@ public class SecurityConfig {
         DaoAuthenticationProvider authenticationProvider = new DaoAuthenticationProvider();
         authenticationProvider.setUserDetailsService(userDetailService);
         authenticationProvider.setPasswordEncoder(passwordEncoder());
+        authenticationProvider.setUserCache(userCache());
         return authenticationProvider;
     }
 }

@@ -2,6 +2,7 @@ package sapo.com.repository;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,9 +14,11 @@ import java.time.LocalDate;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
+    Page<Order> findByCustomerId(Long customerId, Pageable pageable);
     @Query(value = "SELECT * FROM orders o " +
             "WHERE o.created_on BETWEEN :startDate AND :endDate " +
             "AND o.code LIKE %:code% " +
@@ -33,4 +36,19 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     @Query("SELECT SUM(o.totalPayment) FROM Order o WHERE o.customer.id = :customerId")
     BigDecimal sumTotalPaymentByCustomerId(@Param("customerId") Long customerId);
+
+
+    @Query("SELECT o FROM Order o WHERE DATE(o.createdOn) = :date AND o.storeId = :storeId ORDER BY o.createdOn")
+    List<Order> findOrdersByDate(@Param("date") LocalDate date, @Param("storeId") Long storeId);
+
+
+    @EntityGraph(attributePaths = {
+            "customer",
+            "creator",
+            "orderDetails",
+            "orderDetails.variant"
+    })
+    @Query("SELECT o FROM Order o WHERE o.id = :id")
+    Optional<Order> findWithDetails(@Param("id") Long id);
+
 }

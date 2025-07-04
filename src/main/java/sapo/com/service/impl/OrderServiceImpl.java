@@ -1,5 +1,7 @@
 package sapo.com.service.impl;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -11,9 +13,7 @@ import sapo.com.model.dto.request.order.CreateOrderDetailRequest;
 import sapo.com.model.dto.request.order.UpdateOrderRequest;
 import sapo.com.model.dto.response.OrderDetailResponseV2;
 import sapo.com.model.dto.response.OrderResponse;
-import sapo.com.model.dto.response.order.AllOrderResponse;
-import sapo.com.model.dto.response.order.OrderDetailResponse;
-import sapo.com.model.dto.response.order.OrderRevenueDto;
+import sapo.com.model.dto.response.order.*;
 import sapo.com.model.entity.*;
 import sapo.com.repository.*;
 import sapo.com.service.OrderService;
@@ -21,8 +21,11 @@ import sapo.com.service.OrderService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class OrderServiceImpl implements OrderService {
@@ -46,7 +49,11 @@ public class OrderServiceImpl implements OrderService {
     private ProductRepository productRepository;
 
     @Autowired
-    private VariantStoreRepositry variantStoreRepository;
+    private VariantStoreRepository variantStoreRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
 
     @Override
     @Transactional
@@ -141,6 +148,121 @@ public class OrderServiceImpl implements OrderService {
         return getOrderDetail(newOrder.getId());
     }
 
+//    @Override
+//    @Transactional
+//    public OrderDetailResponse createOrder(CreateOrderRequest request) {
+//        // Kiểm tra thông tin đầu vào
+//        Customer customer = customerRepository.findById(request.getCustomerId())
+//                .orElseThrow(() -> new RuntimeException("Khách hàng không tồn tại"));
+//        User user = userRepository.findById(request.getCreatorId())
+//                .orElseThrow(() -> new RuntimeException("Người tạo đơn hàng không tồn tại"));
+//        if (request.getOrderLineItems().isEmpty()) {
+//            throw new RuntimeException("Đơn hàng không có sản phẩm");
+//        }
+//        if (request.getCashReceive().compareTo(request.getTotalPayment()) < 0) {
+//            throw new RuntimeException("Số tiền nhận không hợp lệ");
+//        }
+//
+//        // Tạo đơn hàng
+//        Order order = new Order();
+//        order.setStoreId(request.getStoreId());
+//        order.setCustomer(customer);
+//        order.setCreator(user);
+//        order.setTotalQuantity(request.getTotalQuantity());
+//        order.setTotalPayment(request.getTotalPayment());
+//        order.setCashReceive(request.getCashReceive());
+//        order.setCashRepay(request.getCashRepay());
+//        order.setPaymentType(request.getPaymentType());
+//        order.setNote(request.getNote());
+//        order.setStatus("create");
+//        order.setUpdateTime(LocalDateTime.now());
+//
+//        order = orderRepository.save(order); // save để sinh ID
+//
+//        // Gom tất cả variantId
+//        Set<Long> variantIds = request.getOrderLineItems().stream()
+//                .map(CreateOrderDetailRequest::getVariantId)
+//                .collect(Collectors.toSet());
+//
+//        // Lấy toàn bộ variant, product và variantStore 1 lần
+//        Map<Long, Variant> variantMap = variantRepository.findAllById(variantIds)
+//                .stream().collect(Collectors.toMap(Variant::getId, v -> v));
+//
+//        Map<Long, VariantStore> variantStoreMap = variantStoreRepository
+//                .findAllByVariant_IdInAndStoreId(variantIds, request.getStoreId())
+//                .stream().collect(Collectors.toMap(vs -> vs.getVariant().getId(), vs -> vs));
+//
+//        // Lấy product từ variant (tránh query trong vòng lặp)
+//        Set<Long> productIds = variantMap.values().stream()
+//                .map(v -> v.getProduct().getId())
+//                .collect(Collectors.toSet());
+//
+//        Map<Long, Product> productMap = productRepository.findAllById(productIds)
+//                .stream().collect(Collectors.toMap(Product::getId, p -> p));
+//
+//        // Tạo danh sách để batch xử lý
+//        List<OrderDetail> orderDetails = new ArrayList<>();
+//        List<Variant> variantsToUpdate = new ArrayList<>();
+//        List<Product> productsToUpdate = new ArrayList<>();
+//        List<VariantStore> storesToUpdate = new ArrayList<>();
+//
+//        for (CreateOrderDetailRequest item : request.getOrderLineItems()) {
+//            Variant variant = variantMap.get(item.getVariantId());
+//            if (item.getQuantity() <= 0 || item.getQuantity() > variant.getQuantity()) {
+//                throw new RuntimeException("Số lượng sản phẩm không hợp lệ hoặc không đủ: " + variant.getId());
+//            }
+//
+//            // Tạo chi tiết đơn hàng
+//            OrderDetail detail = new OrderDetail();
+//            detail.setOrder(order);
+//            detail.setVariant(variant);
+//            detail.setQuantity(item.getQuantity());
+//            detail.setSubTotal(item.getSubTotal());
+//            orderDetails.add(detail);
+//
+//            // Trừ tồn kho variant
+//            variant.setQuantity(variant.getQuantity() - item.getQuantity());
+//            variantsToUpdate.add(variant);
+//
+//            // Trừ tổng tồn kho product
+//            Product product = productMap.get(variant.getProduct().getId());
+//            product.setTotalQuantity(product.getTotalQuantity() - item.getQuantity());
+//            productsToUpdate.add(product);
+//
+//            // Trừ tồn kho ở VariantStore
+//            VariantStore store = variantStoreMap.get(variant.getId());
+//            if (store == null || store.getQuantity() < item.getQuantity()) {
+//                throw new RuntimeException("Sản phẩm trong kho không đủ: variantId = " + variant.getId());
+//            }
+//            store.setQuantity(store.getQuantity() - item.getQuantity());
+//            storesToUpdate.add(store);
+//        }
+//
+//        // Batch save
+//        orderDetailRepository.saveAll(orderDetails);
+//        variantRepository.saveAll(variantsToUpdate);
+//        productRepository.saveAll(productsToUpdate);
+//        variantStoreRepository.saveAll(storesToUpdate);
+//
+//        entityManager.flush();
+//
+//        // Cập nhật khách hàng
+//        customer.setNumberOfOrder(customer.getNumberOfOrder() + 1);
+//        if (customer.getTotalExpense() == null) {
+//            customer.setTotalExpense(order.getTotalPayment());
+//        } else {
+//            customer.setTotalExpense(customer.getTotalExpense().add(order.getTotalPayment()));
+//        }
+//
+//        // Gán mã đơn hàng (sau khi có ID)
+//        order.setCode("SON" + String.format("%05d", order.getId()));
+//////        orderRepository.save(order);
+////
+////        return getOrderDetail(order.getId());
+//////        return new OrderDetailResponse();
+//    }
+
+
     @Override
     public List<AllOrderResponse> getAllOrder(int page, int limit, String query, LocalDate startDate, LocalDate endDate, Long storeId) {
         List<Order> orders = orderRepository.findOrdersByDateAndCode(startDate, endDate, query, storeId);
@@ -193,13 +315,53 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public OrderDetailResponse getOrderDetail(Long orderId) {
-        Order order = orderRepository.findById(orderId)
+//        Order order = orderRepository.findById(orderId)
+//                .orElseThrow(() -> new RuntimeException("Đơn hàng không tồn tại"));
+        Order order = orderRepository.findWithDetails(orderId)
                 .orElseThrow(() -> new RuntimeException("Đơn hàng không tồn tại"));
         OrderDetailResponse orderDetailResponse = new OrderDetailResponse(order);
         // Lấy chi tiết đơn hàng
         orderDetailResponse.setOrderDetails(orderDetailRepository.findAllByOrderId(orderId));
         return orderDetailResponse;
     }
+
+    @Override
+    public OrderDetailResponse getOrderDetailV2(Long orderId) {
+        Order order = orderRepository.findWithDetails(orderId)
+                .orElseThrow(() -> new RuntimeException("Đơn hàng không tồn tại"));
+
+        OrderDetailResponse response = new OrderDetailResponse(order);
+
+        Set<OrderDetail> orderDetails = order.getOrderDetails();
+        response.setOrderDetails(orderDetails == null ? new ArrayList<>() : new ArrayList<>(orderDetails));
+
+
+        return response;
+    }
+
+
+//    @Override
+//    public OrderDetailResponse getOrderDetail(Long orderId) {
+//        Order order = orderRepository.findWithDetails(orderId)
+//                .orElseThrow(() -> new RuntimeException("Đơn hàng không tồn tại"));
+//
+//        OrderDetailResponse response = new OrderDetailResponse(order);
+//
+//        List<OrderDetailDto> detailDtos = order.getOrderDetails().stream().map(od -> {
+//            return new OrderDetailDto(
+//                    od.getVariant().getId(),
+//                    od.getVariant().getName(),
+//                    od.getQuantity(),
+//                    od.getSubTotal(),
+//                    od.getVariant().getSku(),
+//                    od.getVariant().getImagePath()
+//            );
+//        }).toList();
+//
+//        response.setOrderDetails(detailDtos);
+//        return response;
+//    }
+
 
     @Override
     public OrderRevenueDto getTodayOrdersAndRevenue(Long storeId, Pageable pageable) throws OrderNotFoundException {
@@ -328,6 +490,26 @@ public class OrderServiceImpl implements OrderService {
         customerRepository.save(customer);
 
         return getOrderDetail(orderId);
+    }
+
+    @Override
+    public List<OrderByHourDto> getOrderCountByDay(Long storeId, LocalDate date) {
+        // Lấy tất cả đơn hàng trong ngày
+        List<Order> orders = orderRepository.findOrdersByDate(date, storeId);
+
+        // Khởi tạo mảng 24 giờ
+        List<OrderByHourDto> ordersByHour = new ArrayList<>();
+        for (int hour = 0; hour < 24; hour++) {
+            ordersByHour.add(new OrderByHourDto(hour, 0L)); // Đặt số lượng mặc định là 0
+        }
+
+        // Tính số đơn hàng cho từng giờ
+        for (Order order : orders) {
+            int hour = order.getCreatedOn().getHour(); // Lấy giờ từ thời gian tạo đơn
+            ordersByHour.get(hour).setOrderCount(ordersByHour.get(hour).getOrderCount() + 1); // Tăng số lượng đơn hàng cho giờ đó
+        }
+
+        return ordersByHour;
     }
 
 }

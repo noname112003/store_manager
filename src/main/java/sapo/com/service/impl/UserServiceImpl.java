@@ -6,6 +6,7 @@ import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.security.authentication.AuthenticationProvider;
@@ -17,12 +18,12 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import sapo.com.exception.UserException;
-import sapo.com.model.dto.request.PasswordRequest;
-import sapo.com.model.dto.request.RoleRequest;
-import sapo.com.model.dto.request.UpdateUserRequest;
-import sapo.com.model.dto.request.UserRequest;
+import sapo.com.model.dto.request.*;
 import sapo.com.model.dto.response.UserResponse;
+import sapo.com.model.dto.response.user.UserResponseDTO;
 import sapo.com.model.entity.Role;
 import sapo.com.model.entity.User;
 import sapo.com.model.entity.UserStore;
@@ -129,6 +130,55 @@ public class UserServiceImpl implements UserService {
 
         return user;
     }
+
+    @Override
+    public User resetPasswordByEmailAndPhone(String email, String phoneNumber) throws Exception {
+        // Lấy User từ email
+        User user = userRepository.findByEmail(email);
+        if (user == null || !user.getPhoneNumber().equals(phoneNumber)) {
+            throw new Exception("Không tìm thấy người dùng với email và số điện thoại tương ứng.");
+        }
+
+        // Tạo mật khẩu mới
+        String newPassword = generateNewPassword();
+
+        // Mã hóa mật khẩu mới
+        String encodedPassword = passwordEncoder.encode(newPassword);
+        user.setPassword(encodedPassword);
+
+        // Lưu mật khẩu mới vào cơ sở dữ liệu
+        userRepository.save(user);
+
+        // Gửi email chứa mật khẩu mới
+        try {
+            sendNewPasswordEmail(email, newPassword);
+        } catch (MessagingException | UnsupportedEncodingException e) {
+            throw new Exception("Không thể gửi email chứa mật khẩu mới: " + e.getMessage());
+        }
+
+        return user;
+    }
+
+
+    @Override
+    public UserResponseDTO getUserById(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        return UserResponseDTO.builder()
+                .id(user.getId())
+                .name(user.getName())
+                .email(user.getEmail())
+                .phoneNumber(user.getPhoneNumber())
+                .address(user.getAddress())
+                .status(user.getStatus())
+                .birthDay(user.getBirthDay())
+                .roles(user.getRoles()) // hoặc convert sang RoleDTO nếu cần
+                .createdOn(user.getCreatedOn())
+                .updateOn(user.getUpdateOn())
+                .build();
+    }
+
     @Override
     public Page<User> findUsersByFilter(Pageable pageable, String search, String role, Long storeId) {
         return userRepository.findUsersByFilter(storeId, role, search, pageable);
@@ -182,6 +232,56 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public User registerV2(User user, Long storeId) throws Exception {
+
+        if (userRepository.existsByEmail(user.getEmail())) {
+            throw new IllegalArgumentException("Email đã tồn tại.");
+        }
+
+
+        if (userRepository.existsByPhoneNumber(user.getPhoneNumber())) {
+            throw new IllegalArgumentException("Số điện thoại đã tồn tại.");
+        }
+
+
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+
+
+        Set<Role> roles = new HashSet<>();
+        if (user.getRoles() == null || user.getRoles().isEmpty()) {
+            roles.add(roleService.findByName("ROLE_ADMIN"));
+        } else {
+            for (Role role : user.getRoles()) {
+                roles.add(roleService.findByName(role.getName()));
+            }
+        }
+
+
+        User newUser = new User();
+        newUser.setName(user.getName());
+        newUser.setEmail(user.getEmail());
+        newUser.setPassword(user.getPassword());
+        newUser.setStatus(true);
+        newUser.setRoles(roles);
+        newUser.setAddress(user.getAddress());
+        newUser.setPhoneNumber(user.getPhoneNumber());
+        newUser.setBirthDay(user.getBirthDay());
+        newUser.setCreatedOn(LocalDateTime.now());
+        newUser.setUpdateOn(LocalDateTime.now());
+
+        User savedUser = userRepository.save(newUser);
+
+
+        if (storeId != null) {
+            UserStore userStore = new UserStore();
+            userStore.setUserId(savedUser.getId());
+            userStore.setStoreId(storeId);
+            userStoreRepository.save(userStore);
+        }
+
+        return savedUser;
+    }
+    @Override
     public UserResponse login(UserRequest userRequest) throws Exception {
         try {
 
@@ -221,6 +321,57 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public UserResponse loginForEmployee(UserRequestForEmployee userRequest) throws Exception {
+        try {
+            // Kiểm tra Admin qua số điện thoại
+            User admin = userRepository.findByPhoneNumber(userRequest.getAdminPhoneNumber());
+            if (admin == null || !admin.getRoles().contains("ROLE_ADMIN")) {
+                throw new Exception("Không tồn tại thông tin admin .");
+            }
+
+            // Tìm nhân viên qua số điện thoại và mật khẩu
+            User employee = userRepository.findByPhoneNumber(userRequest.getEmployeePhoneNumber());
+            if (employee == null || !passwordEncoder.matches(userRequest.getEmployeePassword(), employee.getPassword())) {
+                throw new Exception("Tài khoản hoặc mật khẩu không chính xác.");
+            }
+
+            // Kiểm tra xem nhân viên có thuộc store mà admin quản lý không
+            List<Long> adminStoreIds = userStoreRepository.findStoreIdsByUserId(admin.getId());
+            if (adminStoreIds.isEmpty()) {
+                throw new Exception("Admin không quản lý store nào.");
+            }
+
+            // Kiểm tra xem nhân viên có thuộc store mà admin quản lý không
+            boolean isEmployeeOfAdminStore = userStoreRepository.findByUserIdAndStoreId(employee.getId(), adminStoreIds.get(0)).size() > 0;
+            if (!isEmployeeOfAdminStore) {
+                throw new Exception("Nhân viên không thuộc store mà admin quản lý.");
+            }
+
+            // Tạo Authentication cho nhân viên (sử dụng phoneNumber của nhân viên)
+            Authentication authentication = authenticationProvider.authenticate(
+                    new UsernamePasswordAuthenticationToken(userRequest.getEmployeePhoneNumber(), userRequest.getEmployeePassword()));
+            UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+
+            // Truy vấn các storeId mà nhân viên có quyền truy cập
+            List<Long> storeIds = userStoreRepository.findStoreIdsByUserId(userPrincipal.getId());
+
+            return UserResponse.builder()
+                    .token(jwtProvider.generateToken(userPrincipal))
+                    .id(userPrincipal.getId())
+                    .phoneNumber(userPrincipal.getPhoneNumber())
+                    .name(userPrincipal.getName())
+                    .roles(userPrincipal.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toSet()))
+                    .storeIds(storeIds)
+                    .build();
+        } catch (BadCredentialsException e) {
+            throw new Exception("Số điện thoại hoặc mật khẩu không chính xác.");
+        } catch (DisabledException e) {
+            throw new Exception("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ chủ cửa hàng.");
+        } catch (AuthenticationException e) {
+            throw new Exception("Xác thực không thành công. Vui lòng kiểm tra lại thông tin đăng nhập.");
+        }
+    }
+    @Override
     public User resetPassword(Long id) throws Exception {
         Optional<User> user = userRepository.findById(id) ;
         if (user.isPresent()){
@@ -248,28 +399,81 @@ public class UserServiceImpl implements UserService {
 
     }
 
-    @Override
-    public User update(Long id, User user) throws Exception {
+//    @Override
+//    public User update(Long id, User user) throws Exception {
+//
+//        Optional<User> findByIdUser = userRepository.findById(id);
+//        if (findByIdUser.isPresent()){
+//
+//            User updateUser = findByIdUser.get();
+//            updateUser.setName(user.getName());
+//            updateUser.setEmail(user.getEmail());
+////            updateUser.setPassword(passwordEncoder.encode(updateUser.getPassword()));
+////            updateUser.setPassword(updateUser.getPassword());
+//            updateUser.setAddress(user.getAddress());
+//            updateUser.setPhoneNumber(user.getPhoneNumber());
+//            updateUser.setRoles(user.getRoles());
+//            updateUser.setStatus(user.getStatus());
+//            updateUser.setBirthDay(user.getBirthDay());
+//            updateUser.setUpdateOn(LocalDateTime.now());
+//            if (user.getPassword() != null && !user.getPassword().isBlank()) {
+//                // Kiểm tra mật khẩu mới sau khi encode có khác mật khẩu cũ không
+//                if (!passwordEncoder.matches(user.getPassword(), updateUser.getPassword())) {
+//                    updateUser.setPassword(passwordEncoder.encode(user.getPassword()));
+//                }
+//            }
+//
+//            return userRepository.save(updateUser);
+//        }else {
+//            throw new Exception("ID không tìm thấy");
+//        }
+//    }
+@Override
+public User update(Long id, User user) throws Exception {
+    User updateUser = userRepository.findById(id)
+            .orElseThrow(() -> new Exception("ID không tìm thấy"));
 
-        Optional<User> findByIdUser = userRepository.findById(id);
-        if (findByIdUser.isPresent()){
+    // Chỉ set khi khác
+    if (!Objects.equals(updateUser.getName(), user.getName())) {
+        updateUser.setName(user.getName());
+    }
 
-            User updateUser = findByIdUser.get();
-            updateUser.setName(user.getName());
-            updateUser.setEmail(user.getEmail());
-//            updateUser.setPassword(passwordEncoder.encode(updateUser.getPassword()));
-            updateUser.setPassword(updateUser.getPassword());
-            updateUser.setAddress(user.getAddress());
-            updateUser.setPhoneNumber(user.getPhoneNumber());
-            updateUser.setRoles(user.getRoles());
-            updateUser.setStatus(user.getStatus());
-            updateUser.setBirthDay(user.getBirthDay());
-            updateUser.setUpdateOn(LocalDateTime.now());
-            return userRepository.save(updateUser);
-        }else {
-            throw new Exception("ID không tìm thấy");
+    if (!Objects.equals(updateUser.getEmail(), user.getEmail())) {
+        updateUser.setEmail(user.getEmail());
+    }
+
+    if (!Objects.equals(updateUser.getAddress(), user.getAddress())) {
+        updateUser.setAddress(user.getAddress());
+    }
+
+    if (!Objects.equals(updateUser.getPhoneNumber(), user.getPhoneNumber())) {
+        updateUser.setPhoneNumber(user.getPhoneNumber());
+    }
+
+    if (!Objects.equals(updateUser.getStatus(), user.getStatus())) {
+        updateUser.setStatus(user.getStatus());
+    }
+
+    if (!Objects.equals(updateUser.getBirthDay(), user.getBirthDay())) {
+        updateUser.setBirthDay(user.getBirthDay());
+    }
+
+    // Chỉ set roles nếu thay đổi
+    if (user.getRoles() != null && !user.getRoles().equals(updateUser.getRoles())) {
+        updateUser.setRoles(user.getRoles());
+    }
+
+    // Xử lý mật khẩu mới
+    if (user.getPassword() != null && !user.getPassword().isBlank()) {
+        if (!passwordEncoder.matches(user.getPassword(), updateUser.getPassword())) {
+            updateUser.setPassword(passwordEncoder.encode(user.getPassword()));
         }
     }
+
+    updateUser.setUpdateOn(LocalDateTime.now());
+
+    return userRepository.save(updateUser);
+}
 
     @Override
     public User updateRole(Long id, Role role) throws Exception {

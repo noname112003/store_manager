@@ -37,6 +37,7 @@ public class VariantRequest {
     private BigDecimal priceForSale;
     private String imagePath;
     private Long quantity;
+    private Long stock; // tồn kho tổng
     private Boolean status;
     private List<VariantStoreRequest> variantStores;
 
@@ -55,6 +56,7 @@ public class VariantRequest {
         variant.setCreatedOn(LocalDateTime.now());
         variant.setUpdatedOn(LocalDateTime.now());
         variant.setQuantity(this.quantity != null ? this.quantity : 0L);
+        variant.setStock(this.stock != null ? this.stock : 0L);
         variant.setStatus(this.status != null ? this.status : false);
         return variant;
     }

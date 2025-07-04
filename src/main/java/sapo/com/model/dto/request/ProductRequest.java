@@ -25,6 +25,7 @@ public class ProductRequest {
     private String description;
     private Set<String> imagePath;
     private Long totalQuantity;
+    private Long stock;
     private Boolean status;
     private LocalDateTime createdOn ;
     private LocalDateTime updatedOn ;
@@ -54,10 +55,13 @@ public class ProductRequest {
                     return variantItem;
                 }).collect(Collectors.toList());
         product.setVariants(variants);
-        long totalQuantity = variants.stream()
-                .mapToLong(Variant::getQuantity) // quantity đã là tổng từ variantStores
-                .sum();
+//        long totalQuantity = variants.stream()
+//                .mapToLong(Variant::getQuantity) // quantity đã là tổng từ variantStores
+//                .sum();
+        long totalQuantity = this.totalQuantity;
+        long stock = this.stock;
         product.setTotalQuantity(totalQuantity);
+        product.setStock(stock);
         product.setStatus(this.status);
         return product;
     }

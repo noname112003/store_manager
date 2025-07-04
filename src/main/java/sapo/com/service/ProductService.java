@@ -13,11 +13,15 @@ import java.util.Set;
 public interface ProductService {
      List<ProductResponse> getListOfProducts(Long page, Long limit, String queryString, Long storeId) throws ResourceNotFoundException;
      List<VariantResponse> getListOfVariants(Long page, Long limit, String queryString, Long storeId) throws ResourceNotFoundException;
+     List<VariantResponse> newGetListOfVariants(Long page, Long limit, String queryString, Long storeId) throws ResourceNotFoundException;
      ProductResponse getProductById(Long id, Long storeId) throws ResourceNotFoundException;
+     ProductResponse getProductByIdV2(Long id, Long storeId) throws ResourceNotFoundException;
      VariantResponse getVariantById(Long productId, Long variantId) throws ResourceNotFoundException;
      ProductResponse createNewProduct(ProductRequest productRequest) throws DataConflictException,ResourceNotFoundException;
      VariantResponse createNewVariant(Long productId,VariantRequest variantRequest ) throws DataConflictException, ResourceNotFoundException;
      ProductResponse updateProduct(Long id,ProductRequest productRequest, Long storeId) throws DataConflictException, ResourceNotFoundException;
+
+     ProductResponse updateProductV2(Long id, ProductRequest productRequest, Long storeId) throws DataConflictException, ResourceNotFoundException;
      Boolean deleteProductById(Long id) throws ResourceNotFoundException;
      Boolean deleteVariantById(Long productId, Long variantId) throws ResourceNotFoundException;
 

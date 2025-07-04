@@ -19,8 +19,13 @@ public class ImagePath {
     private Long id ;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id")
-    @JsonBackReference
+    @JsonBackReference(value = "product-image")
     private Product product ;
     private String path  ;
+
+    public ImagePath(Product product, String path) {
+        this.product = product;
+        this.path = path;
+    }
 
 }

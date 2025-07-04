@@ -25,6 +25,7 @@ public class VariantResponse {
     private String color;
     private String material;
     private Long quantity;
+    private Long stock;
     private BigDecimal initialPrice;
     private BigDecimal priceForSale;
     private Boolean status ;

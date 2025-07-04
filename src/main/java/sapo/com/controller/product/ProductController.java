@@ -37,6 +37,12 @@ public class ProductController {
         List<ProductResponse> productResponse = productService.getListOfProducts(page, limit, query, storeId);
         return new ResponseEntity<>(new ResponseObject("Lấy danh sách sản phẩm thành công", productResponse), HttpStatus.OK);
     }
+    @GetMapping("/v2")
+    public ResponseEntity<?> newGetListOfProducts(@RequestParam Long page, @RequestParam Long limit, @RequestParam String query,
+                                               @RequestParam(required = false) Long storeId) {
+        List<ProductResponse> productResponse = productService.getProductResponses(page, limit, query, storeId);
+        return new ResponseEntity<>(new ResponseObject("Lấy danh sách sản phẩm thành công", productResponse), HttpStatus.OK);
+    }
 
     @GetMapping("/total-products")
     public ResponseEntity<?> getNumberOfProducts(@RequestParam String query) {
@@ -46,6 +52,12 @@ public class ProductController {
 
     @GetMapping("/variants")
     public ResponseEntity<?> getListOfVariants(@RequestParam Long page, @RequestParam Long limit, @RequestParam String query,
+                                               @RequestParam(required = false) Long storeId) {
+        List<VariantResponse> variantResponse = productService.newGetListOfVariants(page, limit, query, storeId);
+        return new ResponseEntity<>(new ResponseObject("Lấy danh sách phiên bản thành công", variantResponse), HttpStatus.OK);
+    }
+    @GetMapping("/variants-v2")
+    public ResponseEntity<?> getListOfVariantsV2(@RequestParam Long page, @RequestParam Long limit, @RequestParam String query,
                                                @RequestParam(required = false) Long storeId) {
         List<VariantResponse> variantResponse = productService.getListOfVariants(page, limit, query, storeId);
         return new ResponseEntity<>(new ResponseObject("Lấy danh sách phiên bản thành công", variantResponse), HttpStatus.OK);
@@ -60,6 +72,11 @@ public class ProductController {
     @GetMapping("/{id}")
     public ResponseEntity<?> getProductById(@PathVariable Long id, @RequestParam(required = false) Long storeId) {
         ProductResponse productResponse = productService.getProductById(id, storeId);
+        return new ResponseEntity<>(new ResponseObject("Lấy thông tin sản phẩm thành công", productResponse), HttpStatus.OK);
+    }
+    @GetMapping("/v2/{id}")
+    public ResponseEntity<?> getProductByIdV2(@PathVariable Long id, @RequestParam(required = false) Long storeId) {
+        ProductResponse productResponse = productService.getProductByIdV2(id, storeId);
         return new ResponseEntity<>(new ResponseObject("Lấy thông tin sản phẩm thành công", productResponse), HttpStatus.OK);
     }
 
@@ -85,7 +102,7 @@ public class ProductController {
     @PutMapping("/{productId}/edit")
     public ResponseEntity<ResponseObject> updateProduct(@PathVariable Long productId, @Valid @RequestBody ProductRequest productRequest, @RequestParam(required = false) Long storeId) {
 
-        ProductResponse productResponse = productService.updateProduct(productId, productRequest, storeId);
+        ProductResponse productResponse = productService.updateProductV2(productId, productRequest, storeId);
         return new ResponseEntity<>(new ResponseObject("Cập nhật thông tin sản phẩm thành công", productResponse), HttpStatus.OK);
 
     }

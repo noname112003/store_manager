@@ -5,6 +5,8 @@ import jakarta.persistence.PersistenceContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -49,7 +51,7 @@ public class ProductServiceImpl implements ProductService {
     private ImagePathRepository imagePathRepository;
 
     @Autowired
-    private VariantStoreRepositry variantStoreRepository;
+    private VariantStoreRepository variantStoreRepository;
 
     public List<ProductResponse> getListOfProducts(Long page, Long limit, String queryString, Long storeId) {
         Set<Product> products = productRepository.getListOfProducts(page + 1, limit, queryString);
@@ -60,6 +62,13 @@ public class ProductServiceImpl implements ProductService {
             // Lặp qua các variant trong sản phẩm
             List<VariantResponse> variantResponses = new ArrayList<>();
             for (Variant variant : product.getVariants()) {
+
+                    System.out.println("Variant ID: " + variant.getId());
+                    System.out.println("Name: " + variant.getName());
+                    System.out.println("SKU: " + variant.getSku());
+                    System.out.println("Product ID: " + (variant.getProduct() != null ? variant.getProduct().getId() : "null"));
+                    System.out.println("Product Name: " + (variant.getProduct() != null ? variant.getProduct().getName() : "null"));
+
                 VariantResponse variantResponse = variant.transferToResponse();
 
                 List<VariantStore> variantStores;
@@ -85,12 +94,87 @@ public class ProductServiceImpl implements ProductService {
         else throw new ResourceNotFoundException("Sản phẩm không tồn tại");
     }
 
+//    public List<ProductResponse> newGetListOfProducts(Long page, Long limit, String queryString, Long storeId) {
+//        if (page == null || page < 1) page = 1L;
+//        if (limit == null || limit < 1) limit = 10L;
+//        Pageable pageable = PageRequest.of(page.intValue() - 1, limit.intValue());
+//
+//        List<Product> products = productRepository.findProductsWithVariantsAndStores(queryString, pageable);
+//        if (products.isEmpty()) throw new ResourceNotFoundException("Sản phẩm không tồn tại");
+//
+//        return products.stream().map(product -> {
+//            ProductResponse productResponse = product.transferToResponse();
+//            List<VariantResponse> variantResponses = product.getVariants().stream().map(variant -> {
+//                VariantResponse variantResponse = variant.transferToResponse();
+//
+//                // Filter theo storeId nếu có
+//                List<StoreQuantityDto> storeDtos = variant.getVariantStores().stream()
+//                        .filter(vs -> storeId == null || storeId.equals(vs.getStoreId()))
+//                        .map(vs -> new StoreQuantityDto(vs.getStoreId(), vs.getQuantity()))
+//                        .collect(Collectors.toList());
+//
+//                variantResponse.setVariantStores(storeDtos);
+//                return variantResponse;
+//            }).collect(Collectors.toList());
+//
+//            productResponse.setVariants(variantResponses);
+//            return productResponse;
+//        }).collect(Collectors.toList());
+//    }
+public List<ProductResponse> getProductResponses(Long page, Long limit, String queryString, Long storeId) {
+    if (page == null || page < 0) page = 0L;
+    Pageable pageable = PageRequest.of(page.intValue(), limit.intValue());
+
+    List<Product> products = productRepository.findProductsBasicInfo(queryString, pageable);
+    if (products.isEmpty()) throw new ResourceNotFoundException("Sản phẩm không tồn tại");
+
+    List<Long> productIds = products.stream().map(Product::getId).toList();
+    List<Variant> variants = variantRepository.findWithVariantStoresV2("");
+    for (Variant v : variants) {
+        System.out.println("Variant ID: " + v.getId());
+        System.out.println("Name: " + v.getName());
+        System.out.println("SKU: " + v.getSku());
+        System.out.println("Product ID: " + (v.getProduct() != null ? v.getProduct().getId() : "null"));
+        System.out.println("Product Name: " + (v.getProduct() != null ? v.getProduct().getName() : "null"));
+
+    }
+    // Nhóm variant theo productId
+    Map<Long, List<Variant>> variantMap = variants.stream()
+            .collect(Collectors.groupingBy(v -> v.getProduct().getId()));
+
+    return products.stream().map(product -> {
+        ProductResponse productResponse = product.transferToResponse();
+
+        List<VariantResponse> variantResponses = variantMap.getOrDefault(product.getId(), List.of())
+                .stream()
+                .map(variant -> {
+                    VariantResponse response = variant.transferToResponse();
+                    List<StoreQuantityDto> storeDtos = variant.getVariantStores().stream()
+                            .filter(vs -> storeId == null || vs.getStoreId().equals(storeId))
+                            .map(vs -> new StoreQuantityDto(vs.getStoreId(), vs.getQuantity()))
+                            .toList();
+                    response.setVariantStores(storeDtos);
+                    return response;
+                }).toList();
+
+        productResponse.setVariants(variantResponses);
+        return productResponse;
+    }).toList();
+}
+
+
     public Long getNumberOfProducts(String queryString) {
         return productRepository.countByNameContainingAndStatus(queryString, true);
     }
 
     public List<VariantResponse> getListOfVariants(Long page, Long limit, String queryString, Long storeId) {
-        Set<Variant> variants = variantRepository.getListOfVariants(page+1, limit, queryString);
+//        Set<Variant> variants = variantRepository.getListOfVariants(page+1, limit, queryString);
+        // Validate & xử lý phân trang
+        if (page == null || page < 1) page = 1L;
+        if (limit == null || limit < 1) limit = 10L;
+
+        int offset = (int) ((page - 1) * limit);
+        List<Variant> variants = variantRepository.findVariantsBySearch(queryString, limit.intValue(), offset);
         List<VariantResponse> variantsResponse = new ArrayList<>();
         for (Variant variant : variants) {
             VariantResponse response = variant.transferToResponse();
@@ -116,6 +200,39 @@ public class ProductServiceImpl implements ProductService {
         else throw new ResourceNotFoundException("Phiên bản không tồn tại");
     }
 
+    public List<VariantResponse> newGetListOfVariants(Long page, Long limit, String queryString, Long storeId) {
+        if (page == null || page < 0) page = 0L;
+        Pageable pageable = PageRequest.of(page.intValue(), limit.intValue());
+
+
+        List<Variant> variants = variantRepository.findWithVariantStores(queryString, pageable);
+        for (Variant v : variants) {
+            System.out.println("Variant ID: " + v.getId());
+            System.out.println("Name: " + v.getName());
+            System.out.println("SKU: " + v.getSku());
+            System.out.println("Product ID: " + (v.getProduct() != null ? v.getProduct().getId() : "null"));
+            System.out.println("Product Name: " + (v.getProduct() != null ? v.getProduct().getName() : "null"));
+
+        }
+        if (variants.isEmpty()) {
+            throw new ResourceNotFoundException("Phiên bản không tồn tại");
+        }
+
+        List<VariantResponse> variantsResponse = new ArrayList<>();
+        for (Variant variant : variants) {
+            VariantResponse response = variant.transferToResponse();
+
+            List<StoreQuantityDto> storeDtos = variant.getVariantStores().stream()
+                    .filter(vs -> storeId == null || vs.getStoreId().equals(storeId))
+                    .map(vs -> new StoreQuantityDto(vs.getStoreId(), vs.getQuantity()))
+                    .collect(Collectors.toList());
+
+            response.setVariantStores(storeDtos);
+            variantsResponse.add(response);
+        }
+
+        return variantsResponse;
+    }
     public Long getNumberOfVariants(String queryString) {
         return variantRepository.countByNameContainingAndStatus(queryString, true);
     }
@@ -156,6 +273,52 @@ public class ProductServiceImpl implements ProductService {
 
         statisticSizeColorMaterial(productResponse);
         return productResponse;
+    }
+
+    public ProductResponse getProductByIdV2(Long id, Long storeId) {
+        // 1. Tìm product và validate
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Sản phẩm không tồn tại hoặc đã bị xóa"));
+
+        if (!product.getStatus()) {
+            throw new ResourceNotFoundException("Sản phẩm không tồn tại hoặc đã bị xóa");
+        }
+
+        // 2. Lọc variants đã disable
+        product.getVariants().removeIf(variant -> !variant.getStatus());
+
+        // 3. Convert sang response DTO
+        ProductResponse productResponse = product.transferToResponse();
+
+        // 4. Truy vấn variant_store 1 lần duy nhất — theo productId + storeId hoặc chỉ productId
+        List<VariantStore> variantStores = (storeId != null)
+                ? variantStoreRepository.findByProductIdAndStoreId(product.getId(), storeId)
+                : variantStoreRepository.findByProductId(product.getId());
+
+        // 5. Ánh xạ variantStore thành map để set vào DTO
+        Map<Long, List<StoreQuantityDto>> variantStoreDtoMap = mapVariantStoreDtos(variantStores);
+
+        for (VariantResponse variantResponse : productResponse.getVariants()) {
+            variantResponse.setVariantStores(
+                    variantStoreDtoMap.getOrDefault(variantResponse.getId(), List.of())
+            );
+        }
+
+        // 6. Lấy size/color/material thống kê
+        statisticSizeColorMaterial(productResponse);
+
+        return productResponse;
+    }
+
+
+    private Map<Long, List<StoreQuantityDto>> mapVariantStoreDtos(List<VariantStore> stores) {
+        return stores.stream().collect(Collectors.groupingBy(
+                vs -> vs.getVariant().getId(),
+                Collectors.mapping(
+                        vs -> new StoreQuantityDto(vs.getStoreId(), vs.getQuantity()),
+                        Collectors.toList()
+                )
+        ));
     }
 
     public VariantResponse getVariantById(Long productId, Long variantId) {
@@ -205,7 +368,7 @@ public class ProductServiceImpl implements ProductService {
 
             for (VariantStoreRequest vsr : variantRequest.getVariantStores()) {
                 VariantStore vs = new VariantStore();
-                vs.setVariantId(variant.getId());
+                vs.setVariant(variant);
                 vs.setStoreId(vsr.getStoreId());
                 vs.setQuantity(vsr.getQuantity());
                 variantStoreRepository.save(vs);
@@ -291,15 +454,17 @@ public class ProductServiceImpl implements ProductService {
                     .filter(vs -> vs.getStoreId().equals(storeId))
                     .findFirst()
                     .orElse(null);
+            System.out.println("quang "+ matchingStoreRequest);
 
             if (matchingStoreRequest != null) {
                 // Kiểm tra đã tồn tại VariantStore cho variantId + storeId chưa
                 List<VariantStore> variantStores = variantStoreRepository.findByVariantIdAndStoreId(variant.getId(), storeId);
                 VariantStore variantStore = variantStores.isEmpty()
-                        ? VariantStore.builder().variantId(variant.getId()).storeId(storeId).build()
+                        ? VariantStore.builder().variant(variant).storeId(storeId).build()
                         : variantStores.get(0);
 
                 variantStore.setQuantity(matchingStoreRequest.getQuantity());
+                System.out.println("quang"+ variantStore);
                 variantStoreRepository.save(variantStore);
             }
             //
@@ -367,10 +532,239 @@ public class ProductServiceImpl implements ProductService {
         return productResponse;
     }
 
+//    @Transactional
+//    public ProductResponse updateProductV2(Long id, ProductRequest productRequest, Long storeId) {
+//        Product product = productRepository.findById(id)
+//                .orElseThrow(() -> new ResourceNotFoundException("Sản phẩm không tồn tại"));
+//
+//        Category category = categoryRepository.findById(productRequest.getCategoryId())
+//                .orElseThrow(() -> new ResourceNotFoundException("Loại sản phẩm không tồn tại"));
+//        Brand brand = brandRepository.findById(productRequest.getBrandId())
+//                .orElseThrow(() -> new ResourceNotFoundException("Nhãn hiệu không tồn tại"));
+//
+//        Map<Long, Variant> variantMap = product.getVariants()
+//                .stream()
+//                .collect(Collectors.toMap(Variant::getId, Function.identity()));
+//
+//        Map<Long, VariantRequest> requestVariantMap = productRequest.getVariants()
+//                .stream()
+//                .collect(Collectors.toMap(VariantRequest::getId, Function.identity()));
+//
+//        Map<Long, VariantStore> variantStoreMap = variantStoreRepository
+//                .findByProductIdAndStoreId(product.getId(), storeId)
+//                .stream()
+//                .collect(Collectors.toMap(vs -> vs.getVariant().getId(), Function.identity()));
+//
+//        Set<String> variantKeySet = new HashSet<>();
+//        long totalQuantity = 0L;
+//
+//        for (VariantRequest vr : productRequest.getVariants()) {
+//            Variant variant = variantMap.get(vr.getId());
+//            if (variant == null) throw new ResourceNotFoundException("Loại sản phẩm không tồn tại");
+//
+//            // Validate trùng thuộc tính
+//            String key = vr.getSize() + "-" + vr.getColor() + "-" + vr.getMaterial();
+//            if (!variantKeySet.add(key)) throw new DataConflictException("Trùng thuộc tính: " + key);
+//
+//            // Validate SKU
+//            String newSku = vr.getSku();
+//            if (newSku != null && !newSku.equals(variant.getSku())) {
+//                if (newSku.startsWith("PVN")) throw new DataConflictException("SKU không hợp lệ");
+//                if (variantRepository.existsBySku(newSku)) throw new DataConflictException("SKU đã tồn tại");
+//            }
+//
+//            variant.updateFromRequest(vr); // cập nhật các trường cơ bản
+//
+//            // Cập nhật variantStore
+//            VariantStoreRequest vsr = vr.getVariantStores().stream()
+//                    .filter(vs -> vs.getStoreId().equals(storeId)).findFirst().orElse(null);
+//            if (vsr != null) {
+//                VariantStore vs = variantStoreMap.getOrDefault(variant.getId(),
+//                        VariantStore.builder().variant(variant).storeId(storeId).build());
+//                vs.setQuantity(vsr.getQuantity());
+//                variantStoreRepository.save(vs);
+//            }
+//
+//            totalQuantity += vr.getQuantity();
+//        }
+//
+//        product.setName(productRequest.getName());
+//        product.setDescription(productRequest.getDescription());
+//        product.setTotalQuantity(totalQuantity);
+//        product.setBrand(brand);
+//        product.setCategory(category);
+//        product.setUpdatedOn(LocalDateTime.now());
+//        product.setStock(productRequest.getStock());
+//
+////        product.getImagePath().clear();
+////        for (String imagePath : productRequest.getImagePath()) {
+////            product.getImagePath().add(new ImagePath(product, imagePath));
+////        }
+//        Set<String> newPaths = new HashSet<>(productRequest.getImagePath());
+//        Set<String> oldPaths = product.getImagePath().stream()
+//                .map(ImagePath::getPath).collect(Collectors.toSet());
+//
+//        if (!newPaths.equals(oldPaths)) {
+//            product.getImagePath().clear();
+//            for (String path : newPaths) {
+//                product.getImagePath().add(new ImagePath(product, path));
+//            }
+//        }
+//
+//        Product savedProduct = productRepository.saveAndFlush(product);
+//        entityManager.refresh(savedProduct);
+//
+//        ProductResponse productResponse = savedProduct.transferToResponse();
+//
+//        // Mapping lại variantStore để trả về
+//        for (VariantResponse variantResponse : productResponse.getVariants()) {
+//            List<VariantStore> stores = variantStoreRepository.findByVariantIdAndStoreId(variantResponse.getId(), storeId);
+//            variantResponse.setVariantStores(
+//                    stores.stream().map(vs -> new StoreQuantityDto(vs.getStoreId(), vs.getQuantity())).toList()
+//            );
+//        }
+//
+//        statisticSizeColorMaterial(productResponse);
+//        return productResponse;
+//    }
+
+@Transactional
+public ProductResponse updateProductV2(Long id, ProductRequest productRequest, Long storeId) {
+    Product product = productRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Sản phẩm không tồn tại"));
+
+    Category category = categoryRepository.findById(productRequest.getCategoryId())
+            .orElseThrow(() -> new ResourceNotFoundException("Loại sản phẩm không tồn tại"));
+
+    Brand brand = brandRepository.findById(productRequest.getBrandId())
+            .orElseThrow(() -> new ResourceNotFoundException("Nhãn hiệu không tồn tại"));
+
+    // Map các variant hiện có trong DB
+    Map<Long, Variant> variantMap = product.getVariants()
+            .stream()
+            .collect(Collectors.toMap(Variant::getId, Function.identity()));
+
+    // Map dữ liệu variant từ request
+    Map<Long, VariantRequest> requestVariantMap = productRequest.getVariants()
+            .stream()
+            .collect(Collectors.toMap(VariantRequest::getId, Function.identity()));
+
+    // Lấy variantStore hiện có trong DB
+    Map<Long, VariantStore> variantStoreMap = variantStoreRepository
+            .findByProductIdAndStoreId(product.getId(), storeId)
+            .stream()
+            .collect(Collectors.toMap(vs -> vs.getVariant().getId(), Function.identity()));
+
+    Set<String> variantKeySet = new HashSet<>();
+    long totalQuantity = 0L;
+
+    List<VariantStore> variantStoresToSave = new ArrayList<>();
+
+    for (VariantRequest vr : productRequest.getVariants()) {
+        Variant variant = variantMap.get(vr.getId());
+        if (variant == null) throw new ResourceNotFoundException("Loại sản phẩm không tồn tại");
+
+        // Validate trùng thuộc tính
+        String key = vr.getSize() + "-" + vr.getColor() + "-" + vr.getMaterial();
+        if (!variantKeySet.add(key)) {
+            throw new DataConflictException("Trùng thuộc tính: " + key);
+        }
+
+        // Validate SKU
+        String newSku = vr.getSku();
+        if (newSku != null && !newSku.equals(variant.getSku())) {
+            if (newSku.startsWith("PVN")) throw new DataConflictException("SKU không hợp lệ");
+            if (variantRepository.existsBySku(newSku)) throw new DataConflictException("SKU đã tồn tại");
+        }
+
+        // Cập nhật thông tin variant
+        variant.updateFromRequest(vr);
+
+        // Cập nhật VariantStore
+        VariantStoreRequest vsr = vr.getVariantStores().stream()
+                .filter(vs -> vs.getStoreId().equals(storeId)).findFirst().orElse(null);
+
+        if (vsr != null) {
+            VariantStore vs = variantStoreMap.getOrDefault(variant.getId(),
+                    VariantStore.builder().variant(variant).storeId(storeId).build());
+
+            vs.setQuantity(vsr.getQuantity());
+            variantStoresToSave.add(vs);
+        }
+
+        totalQuantity += vr.getQuantity();
+    }
+
+    // Cập nhật thông tin sản phẩm
+    product.setName(productRequest.getName());
+    product.setDescription(productRequest.getDescription());
+    product.setTotalQuantity(totalQuantity);
+    product.setBrand(brand);
+    product.setCategory(category);
+    product.setUpdatedOn(LocalDateTime.now());
+    product.setStock(productRequest.getStock());
+
+    // Chỉ cập nhật imagePath nếu có thay đổi
+    Set<String> newPaths = new HashSet<>(productRequest.getImagePath());
+    Set<String> oldPaths = product.getImagePath().stream()
+            .map(ImagePath::getPath).collect(Collectors.toSet());
+
+    if (!newPaths.equals(oldPaths)) {
+        product.getImagePath().clear();
+        for (String path : newPaths) {
+            product.getImagePath().add(new ImagePath(product, path));
+        }
+    }
+
+    // Lưu thông tin
+    Product savedProduct = productRepository.saveAndFlush(product);
+    variantStoreRepository.saveAll(variantStoresToSave);
+    entityManager.refresh(savedProduct); // đảm bảo đầy đủ dữ liệu liên kết
+
+    // Tạo response
+    ProductResponse productResponse = savedProduct.transferToResponse();
+
+    // Truy vấn toàn bộ variantStore một lần để tránh N+1
+    List<Long> variantIds = productResponse.getVariants().stream()
+            .map(VariantResponse::getId).toList();
+
+    List<VariantStore> storeList = variantStoreRepository.findAllByVariantIdInAndStoreId(variantIds, storeId);
+    Map<Long, VariantStore> storeMap = storeList.stream()
+            .collect(Collectors.toMap(vs -> vs.getVariant().getId(), Function.identity()));
+
+    for (VariantResponse variantResponse : productResponse.getVariants()) {
+        VariantStore vs = storeMap.get(variantResponse.getId());
+        if (vs != null) {
+            variantResponse.setVariantStores(List.of(
+                    new StoreQuantityDto(vs.getStoreId(), vs.getQuantity())
+            ));
+        }
+    }
+
+    statisticSizeColorMaterial(productResponse);
+    return productResponse;
+}
+
     public void statisticSizeColorMaterial(ProductResponse productResponse) {
-        productResponse.setSize(variantRepository.findDistinctSizesByProductId(productResponse.getId()));
-        productResponse.setColor(variantRepository.findDistinctColorsByProductId(productResponse.getId()));
-        productResponse.setMaterial(variantRepository.findDistinctMaterialsByProductId(productResponse.getId()));
+//        productResponse.setSize(variantRepository.findDistinctSizesByProductId(productResponse.getId()));
+//        productResponse.setColor(variantRepository.findDistinctColorsByProductId(productResponse.getId()));
+//        productResponse.setMaterial(variantRepository.findDistinctMaterialsByProductId(productResponse.getId()));
+
+        List<Object[]> results = variantRepository.findDistinctSizeColorMaterial(productResponse.getId());
+
+        Set<String> sizes = new HashSet<>();
+        Set<String> colors = new HashSet<>();
+        Set<String> materials = new HashSet<>();
+
+        for (Object[] row : results) {
+            if (row[0] != null) sizes.add((String) row[0]);
+            if (row[1] != null) colors.add((String) row[1]);
+            if (row[2] != null) materials.add((String) row[2]);
+        }
+
+        productResponse.setSize(sizes);
+        productResponse.setColor(colors);
+        productResponse.setMaterial(materials);
     }
 
     @Transactional

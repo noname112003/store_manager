@@ -66,35 +66,44 @@ public class CustomerService {
         }
     }
 
-    public void register(Customer customer) {
-
-        // Lưu customer lần đầu để lấy ID
+    public Customer register(Customer customer) {
         Customer savedCustomer = customerRepository.save(customer);
 
-        // Tạo mã code dựa trên ID
-        String customerCode = String.format("CUS%05d", savedCustomer.getId()); // Tạo mã với 5 chữ số
+        // Tạo mã code
+        String customerCode = String.format("CUS%05d", savedCustomer.getId());
         savedCustomer.setCode(customerCode);
 
-        // Lưu lại customer với mã code
-        customerRepository.save(savedCustomer);
+        // Lưu lại và return
+        return customerRepository.save(savedCustomer);
     }
 
-    public Customer update(Customer customerInForm) throws CustomerNotFoundException {
-        Optional<Customer> customerInDB = customerRepository.findById(customerInForm.getId());
-        if(customerInDB.isPresent()){
-            Customer customer = customerInDB.get();
-            customer.setName(customerInForm.getName());
-            customer.setAddress(customerInForm.getAddress());
-            customer.setPhoneNumber(customerInForm.getPhoneNumber());
-            customer.setGender(customerInForm.isGender());
-            customer.setEmail(customerInForm.getEmail());
-            customer.setBirthday(customerInForm.getBirthday());
-            customer.setNote(customerInForm.getNote());
+//    public Customer update(Customer customerInForm) throws CustomerNotFoundException {
+//        Optional<Customer> customerInDB = customerRepository.findById(customerInForm.getId());
+//        if(customerInDB.isPresent()){
+//            Customer customer = customerInDB.get();
+//            customer.setName(customerInForm.getName());
+//            customer.setAddress(customerInForm.getAddress());
+//            customer.setPhoneNumber(customerInForm.getPhoneNumber());
+//            customer.setGender(customerInForm.isGender());
+//            customer.setEmail(customerInForm.getEmail());
+//            customer.setBirthday(customerInForm.getBirthday());
+//            customer.setNote(customerInForm.getNote());
+//            return customerRepository.save(customer);
+//        }else{
+//            throw new CustomerNotFoundException("Customer not found with ID: " + customerInForm.getId());
+//        }
+//    }
 
-            return customerRepository.save(customer);
-        }else{
-            throw new CustomerNotFoundException("Customer not found with ID: " + customerInForm.getId());
-        }
+    public Customer update(Customer customerInDb, Customer customerInForm) {
+        customerInDb.setName(customerInForm.getName());
+        customerInDb.setAddress(customerInForm.getAddress());
+        customerInDb.setPhoneNumber(customerInForm.getPhoneNumber());
+        customerInDb.setGender(customerInForm.isGender());
+        customerInDb.setEmail(customerInForm.getEmail());
+        customerInDb.setBirthday(customerInForm.getBirthday());
+        customerInDb.setNote(customerInForm.getNote());
+
+        return customerRepository.save(customerInDb); // chỉ 1 câu SQL update
     }
 
     public void delete(Long id) throws CustomerNotFoundException{

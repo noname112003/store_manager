@@ -35,7 +35,7 @@ public class Brand {
     @JsonFormat(shape = JsonFormat.Shape.STRING , pattern = "dd-MM-yyyy HH:mm")
     private LocalDateTime updatedOn ;
     @OneToMany(mappedBy = "brand", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference
+    @JsonManagedReference(value = "product-brand")
     private Set<Product> products;
 
     public BrandResponse transferToResponse(){

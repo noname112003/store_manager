@@ -1,6 +1,8 @@
 package sapo.com.model.entity;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
@@ -50,6 +52,11 @@ public class User {
             inverseJoinColumns = @JoinColumn(name="role_id")
     )
     private Set<Role> roles ;
+
+    @OneToMany(mappedBy = "creator", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+//    @JsonManagedReference(value = "user-order")
+    @JsonIgnore
+    private List<Order> orders;
 
 //    @OneToMany(fetch = FetchType.LAZY , mappedBy = "user" , cascade = CascadeType.ALL)
 //    private List<Orders> orders ;

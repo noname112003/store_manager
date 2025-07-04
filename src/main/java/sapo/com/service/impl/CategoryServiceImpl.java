@@ -99,7 +99,7 @@ public class CategoryServiceImpl implements CategoryService {
         category.setDescription(categoryRequest.getDescription());
         category.setUpdatedOn(LocalDateTime.now());
         Category savedCategory = categoryRepository.saveAndFlush(category);
-        entityManager.refresh(savedCategory);
+//        entityManager.refresh(savedCategory);
         return savedCategory.transferToResponse();
     }
 

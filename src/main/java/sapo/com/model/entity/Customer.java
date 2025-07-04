@@ -59,6 +59,9 @@ public class Customer {
     @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonManagedReference(value = "customer-orders")
     private List<Order> orders;
-
+    @PostPersist
+    public void generateCode() {
+        this.code = String.format("CUS%05d", this.id);
+    }
 
 }

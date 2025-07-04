@@ -34,19 +34,20 @@ public class Product {
 //    private Long storeId;
     private String name;
     @ManyToOne
-    @JsonBackReference
+    @JsonBackReference( value = "product-category")
     @JoinColumn(name = "category_id", nullable = false)  // Foreign key to Category table
     private Category category;
     @ManyToOne
-    @JsonBackReference
+    @JsonBackReference(value = "product-brand")
     @JoinColumn(name = "brand_id", nullable = false)
     private Brand brand;
     private String description;
     @Column(name = "total_quantity")
-    private Long totalQuantity;
+    private Long totalQuantity;// tổng quantity trong variant
+    private Long stock; // tồn kho tổng
     private Boolean status ;
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL,orphanRemoval = true)
-    @JsonManagedReference
+    @JsonManagedReference(value = "product-image")
     private Set<ImagePath> imagePath;
     @JsonFormat(shape = JsonFormat.Shape.STRING , pattern = "dd-MM-yyyy HH:mm")
     @Column(name = "created_on")
@@ -55,7 +56,7 @@ public class Product {
     @Column(name = "updated_on")
     private LocalDateTime updatedOn ;
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL,orphanRemoval = true)
-    @JsonManagedReference
+    @JsonBackReference(value = "product-variant")
     private List<Variant> variants;
 
     public void addImagePath(ImagePath imagePath) {
@@ -96,6 +97,7 @@ public class Product {
         productResponse.setBrandName(this.brand.getName());
         productResponse.setDescription(this.description);
         productResponse.setTotalQuantity(this.getTotalQuantity());
+        productResponse.setStock(this.getStock());
         productResponse.setStatus(this.status);
         productResponse.setImagePath(this.getImagePaths());
         productResponse.setCreatedOn(this.createdOn);

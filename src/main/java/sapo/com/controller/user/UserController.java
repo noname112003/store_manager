@@ -17,6 +17,7 @@ import sapo.com.model.dto.request.UpdateUserRequest;
 import sapo.com.model.dto.response.ResponseObject;
 import sapo.com.model.dto.response.UserResponse;
 import sapo.com.model.dto.response.UserResponseV2;
+import sapo.com.model.dto.response.user.UserResponseDTO;
 import sapo.com.model.entity.User;
 import sapo.com.model.entity.UserStore;
 import sapo.com.repository.UserStoreRepository;
@@ -104,6 +105,17 @@ public class UserController {
                 .data(user)
                 .build());
     }
+
+    @GetMapping("/v2/{id}")
+    public ResponseEntity<?> getUserById(@PathVariable Long id) throws UserException {
+        UserResponseDTO userDto = userService.getUserById(id);
+        return ResponseEntity.ok().body(ResponseObject.builder()
+                .message("Successfully")
+                .status(HttpStatus.OK)
+                .data(userDto)
+                .build());
+    }
+
     @GetMapping("/check-phoneNumber/{phoneNumber}")
     public ResponseEntity<?> findByPhoneNumber(@PathVariable String phoneNumber) throws Exception {
         User user = userService.findByPhoneNumber(phoneNumber);
@@ -149,17 +161,32 @@ public class UserController {
                 .build());
 
     }
+//    @PostMapping("/reset-password")
+//    public ResponseEntity<?> resetPassword(@RequestParam String email) throws Exception {
+//
+//            User user = userService.resetPasswordByEmail(email);
+//            return ResponseEntity.ok().body(ResponseObject.builder()
+//                    .message("Mật khẩu mới đã được gửi đến email của bạn.")
+//                    .status(HttpStatus.OK)
+//                    .data(user)
+//                    .build());
+//
+//    }
+
     @PostMapping("/reset-password")
-    public ResponseEntity<?> resetPassword(@RequestParam String email) throws Exception {
+    public ResponseEntity<?> resetPassword(
+            @RequestParam String email,
+            @RequestParam String phoneNumber) throws Exception {
 
-            User user = userService.resetPasswordByEmail(email);
-            return ResponseEntity.ok().body(ResponseObject.builder()
-                    .message("Mật khẩu mới đã được gửi đến email của bạn.")
-                    .status(HttpStatus.OK)
-                    .data(user)
-                    .build());
+        User user = userService.resetPasswordByEmailAndPhone(email, phoneNumber);
 
+        return ResponseEntity.ok().body(ResponseObject.builder()
+                .message("Mật khẩu mới đã được gửi đến email của bạn.")
+                .status(HttpStatus.OK)
+                .data(user)
+                .build());
     }
+
 
 //    @GetMapping("/check-email/{email}")
 //    public ResponseEntity<?> existEmail (@PathVariable String email) throws Exception {

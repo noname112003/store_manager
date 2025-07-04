@@ -3,11 +3,9 @@ package sapo.com.service;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import sapo.com.exception.UserException;
-import sapo.com.model.dto.request.PasswordRequest;
-import sapo.com.model.dto.request.RoleRequest;
-import sapo.com.model.dto.request.UpdateUserRequest;
-import sapo.com.model.dto.request.UserRequest;
+import sapo.com.model.dto.request.*;
 import sapo.com.model.dto.response.UserResponse;
+import sapo.com.model.dto.response.user.UserResponseDTO;
 import sapo.com.model.entity.Role;
 import sapo.com.model.entity.User;
 
@@ -15,8 +13,12 @@ import sapo.com.model.entity.User;
 
 public interface UserService {
     User register(User user, Long storeId) throws Exception;
+    User registerV2(User user, Long storeId) throws Exception;
     UserResponse login (UserRequest userRequest) throws Exception;
+
+    UserResponse loginForEmployee(UserRequestForEmployee userRequest) throws Exception;
     User resetPasswordByEmail (String email) throws Exception;
+    User resetPasswordByEmailAndPhone(String email, String phoneNumber) throws Exception;
     User resetPassword (Long id) throws Exception;
     Page<User> findAll(Pageable pageable);
     Page<User> findUsersByFilter(Pageable pageable, String search, String role, Long storeId);
@@ -29,6 +31,7 @@ public interface UserService {
     User updateRole (Long id , Role role) throws Exception;
 
     User findById(Long id) throws UserException;
+    UserResponseDTO getUserById(Long id) throws UserException;
 
     User findByName(String name) throws Exception;
 

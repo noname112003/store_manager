@@ -2,10 +2,12 @@ package sapo.com.repository;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.data.repository.PagingAndSortingRepository;
+import org.springframework.data.repository.query.Param;
 import sapo.com.model.entity.Customer;
 
 import java.util.List;
@@ -21,4 +23,10 @@ public interface CustomerRepository extends JpaRepository<Customer , Long>, Pagi
 
     //    @EntityGraph(attributePaths = {"orders"})
     public Optional<Customer> findById(Long id);
+
+    @EntityGraph(attributePaths = {
+            "orders"
+    })
+    @Query("SELECT c FROM Customer c WHERE c.id = :id")
+    Optional<Customer> findWithOrders(@Param("id") Long id);
 }

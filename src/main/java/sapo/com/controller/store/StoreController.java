@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.*;
 import sapo.com.model.dto.request.StoreRequest;
 import sapo.com.model.dto.response.StoreResponse;
 import sapo.com.model.entity.Store;
+import sapo.com.model.entity.UserStore;
+import sapo.com.repository.UserStoreRepository;
 import sapo.com.service.StoreService;
 
 import java.util.HashMap;
@@ -20,6 +22,9 @@ public class StoreController {
 
     @Autowired
     private StoreService storeService;
+
+    @Autowired
+    private UserStoreRepository userStoreRepository;
 
     // API lấy danh sách store theo userId
     @GetMapping("/get_list_store")
@@ -46,7 +51,7 @@ public class StoreController {
         existingStore.setName(storeRequest.getName());
         existingStore.setAddress(storeRequest.getAddress());
         existingStore.setPhone(storeRequest.getPhone());
-        existingStore.setStatus(storeRequest.getStatus());
+        existingStore.setStatus(storeRequest.isStatus());
         existingStore.setCity(storeRequest.getCity());
         existingStore.setDistrict(storeRequest.getDistrict());
         existingStore.setWard(storeRequest.getWard());
@@ -57,5 +62,29 @@ public class StoreController {
         // Map entity sang response
 
         return ResponseEntity.ok(savedStore.transferToResponse());
+    }
+
+
+    @PostMapping
+    public ResponseEntity<Object> createStore(@RequestBody StoreRequest storeRequest) {
+        Store newStore = new Store();
+        newStore.setName(storeRequest.getName());
+        newStore.setAddress(storeRequest.getAddress());
+        newStore.setPhone(storeRequest.getPhone());
+        newStore.setStatus(true);
+        newStore.setCity(storeRequest.getCity());
+        newStore.setDistrict(storeRequest.getDistrict());
+        newStore.setWard(storeRequest.getWard());
+        newStore.setCreatedAt(System.currentTimeMillis());
+        newStore.setModifiedOn(System.currentTimeMillis());
+
+        Store savedStore = storeService.saveStore(newStore);
+        if (storeRequest.getUserId() != null) {
+            UserStore mapping = new UserStore();
+            mapping.setUserId(storeRequest.getUserId());
+            mapping.setStoreId(savedStore.getId());
+            userStoreRepository.save(mapping);
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedStore.transferToResponse());
     }
 }

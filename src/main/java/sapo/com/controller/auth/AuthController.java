@@ -11,6 +11,7 @@ import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.annotation.*;
 import sapo.com.exception.UserException;
 import sapo.com.model.dto.request.UserRequest;
+import sapo.com.model.dto.request.UserRequestForEmployee;
 import sapo.com.model.dto.response.ResponseObject;
 import sapo.com.model.dto.response.UserResponse;
 import sapo.com.model.entity.User;
@@ -37,12 +38,28 @@ public class AuthController {
                         .data(userResponse)
                 .build());
     }
+
+    @PostMapping("/employee-login")
+    public ResponseEntity<?> employeeLogin(@RequestBody @Valid UserRequestForEmployee userRequest, BindingResult bindingResult) throws Exception {
+        if (bindingResult.hasErrors()) {
+            return ResponseEntity.badRequest().body(bindingResult.getAllErrors().stream().map(ObjectError::getDefaultMessage).collect(Collectors.joining("\n")));
+        }
+
+        // Đăng nhập nhân viên
+        UserResponse userResponse = userService.loginForEmployee(userRequest);
+
+        return ResponseEntity.ok().body(ResponseObject.builder()
+                .message("Login successful")
+                .status(HttpStatus.OK)
+                .data(userResponse)
+                .build());
+    }
     @PostMapping("/register")
     public ResponseEntity<?>register(@RequestBody @Valid User user, @RequestParam(required = false) Long storeId , BindingResult bindingResult) throws Exception {
         if (bindingResult.hasErrors()){
             return ResponseEntity.badRequest().body(bindingResult.getAllErrors().stream().map(ObjectError:: getDefaultMessage ).collect(Collectors.joining("\n")));
         }
-        return new ResponseEntity<>(userService.register(user, storeId), HttpStatus.CREATED);
+        return new ResponseEntity<>(userService.registerV2(user, storeId), HttpStatus.CREATED);
     }
 
 }
