@@ -30,9 +30,9 @@ public class Brand {
     private String code ;
     private Boolean status;
     private String description;
-    @JsonFormat(shape = JsonFormat.Shape.STRING , pattern = "dd-MM-yyyy HH:mm")
+    @JsonFormat(shape = JsonFormat.Shape.STRING , pattern = "dd-MM-yyyy HH:mm", timezone = "Asia/Ho_Chi_Minh")
     private LocalDateTime createdOn ;
-    @JsonFormat(shape = JsonFormat.Shape.STRING , pattern = "dd-MM-yyyy HH:mm")
+    @JsonFormat(shape = JsonFormat.Shape.STRING , pattern = "dd-MM-yyyy HH:mm", timezone = "Asia/Ho_Chi_Minh")
     private LocalDateTime updatedOn ;
     @OneToMany(mappedBy = "brand", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference(value = "product-brand")

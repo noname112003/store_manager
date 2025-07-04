@@ -40,9 +40,11 @@ public class Order {
 //    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd-MM-yyyy HH:mm:ss")
     @Column(name = "created_on")
     @CreationTimestamp
+    @JsonFormat(shape = JsonFormat.Shape.STRING , pattern = "dd-MM-yyyy HH:mm", timezone = "Asia/Ho_Chi_Minh")
     private LocalDateTime createdOn;
     @Column(name = "update_time")
     @UpdateTimestamp
+    @JsonFormat(shape = JsonFormat.Shape.STRING , pattern = "dd-MM-yyyy HH:mm", timezone = "Asia/Ho_Chi_Minh")
     private LocalDateTime updateTime;  // thời gian cập nhật gần nhất
     @Column(name = "total_quantity")
     private int totalQuantity;

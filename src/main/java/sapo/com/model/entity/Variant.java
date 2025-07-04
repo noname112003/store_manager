@@ -53,10 +53,10 @@ public class Variant {
     private Boolean status;
     @Column(name = "image_path")
     private String imagePath;
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd-MM-yyyy HH:mm")
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd-MM-yyyy HH:mm", timezone = "Asia/Ho_Chi_Minh")
     @Column(name = "created_on")
     private LocalDateTime createdOn;
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd-MM-yyyy HH:mm")
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "dd-MM-yyyy HH:mm", timezone = "Asia/Ho_Chi_Minh")
     @Column(name = "updated_on")
     private LocalDateTime updatedOn;
 

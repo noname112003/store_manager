@@ -1,5 +1,6 @@
 package sapo.com.model.entity;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -47,9 +48,11 @@ public class Customer {
     private Date birthday;
     @Column(name = "created_on")
     @CreationTimestamp
+    @JsonFormat(shape = JsonFormat.Shape.STRING , pattern = "dd-MM-yyyy HH:mm", timezone = "Asia/Ho_Chi_Minh")
     private LocalDateTime createdOn;
     @Column(name = "updated_on")
     @UpdateTimestamp
+    @JsonFormat(shape = JsonFormat.Shape.STRING , pattern = "dd-MM-yyyy HH:mm", timezone = "Asia/Ho_Chi_Minh")
     private LocalDateTime updatedOn;
     @Column(name = "total_expense", columnDefinition = "Decimal(10,2) default '0.00'")
     private BigDecimal totalExpense;
