@@ -11,6 +11,8 @@ import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import vn.payos.PayOS;
 
+import java.util.TimeZone;
+
 @Configuration
 @SpringBootApplication
 public class MockProjectApplication implements WebMvcConfigurer {
@@ -39,6 +41,7 @@ public class MockProjectApplication implements WebMvcConfigurer {
         return new PayOS(clientId, apiKey, checksumKey);
     }
     public static void main(String[] args) {
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
         SpringApplication.run(MockProjectApplication.class, args);
     }
 
