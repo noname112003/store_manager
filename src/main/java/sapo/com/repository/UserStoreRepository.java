@@ -17,6 +17,13 @@ public interface UserStoreRepository extends JpaRepository<UserStore, Long> {
     List<UserStore> findAllByUserIds(@Param("userIds") List<Long> userIds);
 
     List<UserStore> findByUserIdAndStoreId(Long userId, Long storeId);
-
+    @Query("""
+    SELECT us.storeId
+    FROM UserStore us
+    JOIN Store s ON us.storeId = s.id
+    WHERE us.userId = :userId
+      AND s.status = true
+""")
+    List<Long> findActiveStoreIdsByUserId(@Param("userId") Long userId);
 
 }

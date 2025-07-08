@@ -294,16 +294,39 @@ public class UserServiceImpl implements UserService {
                     System.out.println(grantedAuthority.getAuthority())
             );
 
+            boolean isAdmin = userPrincipal.getAuthorities().stream()
+                    .anyMatch(role -> role.getAuthority().equals("ROLE_ADMIN"));
 
             // Truy vấn các storeId từ bảng user_store_mapping
-            List<Long> storeIds = userStoreRepository.findStoreIdsByUserId(userPrincipal.getId());
+//            List<Long> storeIds = userStoreRepository.findStoreIdsByUserId(userPrincipal.getId());
+            List<Long> storeIds = userStoreRepository.findActiveStoreIdsByUserId(userPrincipal.getId());
+            if (!isAdmin) {
+                if (storeIds == null || storeIds.isEmpty()) {
+                    throw new Exception("Chi nhánh không còn hoạt động.");
+                }
 
+                // Nhân viên chỉ được login với 1 chi nhánh
+                Long storeId = storeIds.get(0);
+
+                return UserResponse.builder()
+                        .token(jwtProvider.generateToken(userPrincipal))
+                        .id(userPrincipal.getId())
+                        .phoneNumber(userPrincipal.getPhoneNumber())
+                        .name(userPrincipal.getName())
+                        .roles(userPrincipal.getAuthorities().stream()
+                                .map(GrantedAuthority::getAuthority)
+                                .collect(Collectors.toSet()))
+                        .storeIds(List.of(storeId))
+                        .build();
+            }
             return UserResponse.builder()
                     .token(jwtProvider.generateToken(userPrincipal))
                     .id(userPrincipal.getId())
                     .phoneNumber(userPrincipal.getPhoneNumber())
                     .name(userPrincipal.getName())
-                    .roles(userPrincipal.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toSet()))
+                    .roles(userPrincipal.getAuthorities().stream()
+                            .map(GrantedAuthority::getAuthority)
+                            .collect(Collectors.toSet()))
                     .storeIds(storeIds)
                     .build();
 

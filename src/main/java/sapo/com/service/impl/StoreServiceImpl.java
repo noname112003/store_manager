@@ -33,6 +33,22 @@ public class StoreServiceImpl implements StoreService {
         return storeRepository.findAllById(storeIds);
     }
 
+    public List<Store> getStoresByUserId(Long userId, Boolean status) {
+        // Lấy tất cả các mapping từ bảng user_store_mapping
+        List<UserStore> userStores = userStoreRepository.findByUserId(userId);
+        List<Long> storeIds = userStores.stream()
+                .map(UserStore::getStoreId)
+                .collect(Collectors.toList());
+
+        if (status == null) {
+            // Nếu không truyền status → lấy tất cả store (cả true và false)
+            return storeRepository.findAllById(storeIds);
+        } else {
+            // Nếu truyền status → lọc theo status
+            return storeRepository.findAllByIdAndStatus(storeIds, status);
+        }
+    }
+
     @Override
     public Store getStoreById(Long id) {
         return storeRepository.findById(id).orElse(null);
@@ -41,5 +57,15 @@ public class StoreServiceImpl implements StoreService {
     @Override
     public Store saveStore(Store store) {
         return storeRepository.save(store);
+    }
+
+    @Override
+    public boolean existsByPhone(String phone) {
+        return storeRepository.existsByPhone(phone);
+    }
+
+    @Override
+    public boolean existsByPhoneAndIdNot(String phone, Long id) {
+        return storeRepository.existsByPhoneAndIdNot(phone, id);
     }
 }

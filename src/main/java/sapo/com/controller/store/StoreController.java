@@ -25,6 +25,17 @@ public class StoreController {
 
     @Autowired
     private UserStoreRepository userStoreRepository;
+    @GetMapping("/{storeId}")
+    public ResponseEntity<Object> getStoreById(@PathVariable Long storeId) {
+        Store store = storeService.getStoreById(storeId);
+        if (store == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", "Store not found with ID: " + storeId));
+        }
+
+        StoreResponse response = store.transferToResponse();
+        return ResponseEntity.ok(response);
+    }
 
     // API lấy danh sách store theo userId
     @GetMapping("/get_list_store")
@@ -38,6 +49,22 @@ public class StoreController {
         }
         return ResponseEntity.ok(stores);
     }
+    @GetMapping("/get_list_storev2")
+    public ResponseEntity<Object> getStoresByUserIdv2(
+            @RequestParam Long userId,
+            @RequestParam(required = false) Boolean status // status là optional
+    ) {
+        List<Store> stores = storeService.getStoresByUserId(userId, status);
+
+        if (stores == null || stores.isEmpty()) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("message", "No stores found for user with ID: " + userId);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        }
+
+        return ResponseEntity.ok(stores);
+    }
+
 
     @PutMapping("/{storeId}")
     public ResponseEntity<Object> updateStore(@PathVariable Long storeId, @RequestBody StoreRequest storeRequest) {
@@ -46,7 +73,11 @@ public class StoreController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("message", "Store not found with ID " + storeId));
         }
-
+        boolean isPhoneDuplicate = storeService.existsByPhoneAndIdNot(storeRequest.getPhone(), storeId);
+        if (isPhoneDuplicate) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Số điện thoại đã được sử dụng cho cửa hàng khác."));
+        }
         // Map từ storeRequest sang entity
         existingStore.setName(storeRequest.getName());
         existingStore.setAddress(storeRequest.getAddress());
@@ -64,9 +95,37 @@ public class StoreController {
         return ResponseEntity.ok(savedStore.transferToResponse());
     }
 
+    @PutMapping("/{storeId}/status")
+    public ResponseEntity<Object> updateStoreStatus(
+            @PathVariable Long storeId,
+            @RequestParam boolean status
+    ) {
+        Store store = storeService.getStoreById(storeId);
+        if (store == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", "Store not found with ID: " + storeId));
+        }
+
+        store.setStatus(status);
+        store.setModifiedOn(System.currentTimeMillis());
+        storeService.saveStore(store);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Cập nhật trạng thái thành công",
+                "storeId", store.getId(),
+                "status", store.isStatus()
+        ));
+    }
+
+
 
     @PostMapping
     public ResponseEntity<Object> createStore(@RequestBody StoreRequest storeRequest) {
+        if (storeService.existsByPhone(storeRequest.getPhone())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Số điện thoại đã được sử dụng để đăng ký cửa hàng khác."));
+        }
+
         Store newStore = new Store();
         newStore.setName(storeRequest.getName());
         newStore.setAddress(storeRequest.getAddress());
